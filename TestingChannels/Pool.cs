@@ -25,29 +25,17 @@ namespace TestingChannels
             writer = channel.Writer;
 
             objects = new PooledObject[100];
+            for (var i = 0; i < objects.Length; i++)
+            {
+                objects[i] = new PooledObject();
+                writer.TryWrite(objects[i]);
+            }
         }
 
         public async ValueTask<PooledObject> Rent(bool async)
         {
             if (reader.TryRead(out var readPooledObject))
                 return readPooledObject;
-
-            for (var numObjects = _numObjects; numObjects < 100; numObjects = _numObjects)
-            {
-                if (Interlocked.CompareExchange(ref _numObjects, numObjects + 1, numObjects) != numObjects)
-                    continue;
-
-                var pooledObject = new PooledObject();
-
-                var i = 0;
-                for (; i < 100; i++)
-                    if (Interlocked.CompareExchange(ref objects[i], pooledObject, null) == null)
-                        break;
-                if (i == 100)
-                    throw new Exception($"Some exception");
-
-                return pooledObject;
-            }
 
             if (async)
                 return await reader.ReadAsync();
